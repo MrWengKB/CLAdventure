@@ -63,6 +63,20 @@
    * - 满血时：上限变化后仍是满血；
    * - 不满血时：不回血，生命只在超过新上限时被压到上限。
    */
+  /**
+   * 解析 "set N" 写法（大小写、空格都可以，如 "set 10"、"SET10"），返回 N；不是 set 写法则返回 null。
+   */
+  function setTarget(v) {
+    const m = /^set\s*(-?\d+)$/i.exec(String(v ?? "").trim());
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  /** 若当前值大于 N 则压到 N，否则不变 */
+  function capTo(current, v) {
+    const t = setTarget(v);
+    return t !== null && current > t ? t : current;
+  }
+
   function changeMaxLife(s, d) {
     if (!d) return;
     const wasFull = s.life >= s.maxLife;
@@ -77,6 +91,8 @@
    * 2. coins：可为负（负债）；exp：只增不减（负数视为 0）
    * 3. maxlife：生命上限增减，规则见 changeMaxLife
    * 4. defense：防御增减，最低为 0
+   * 以上 life、coins、maxlife、defense 都可以写 "set N"：只有当前值大于 N 时才变成 N，否则不变。
+   * set 生命不受防御影响；set 生命上限按 changeMaxLife 的规则处理生命。
    */
   function applyEvent(state, event) {
     const s = Object.assign({}, state);
@@ -84,6 +100,8 @@
     let blocked = 0;
     if (lifeRaw === "full") {
       s.life = s.maxLife;
+    } else if (setTarget(lifeRaw) !== null) {
+      s.life = Math.max(0, capTo(s.life, lifeRaw));
     } else {
       let d = num(lifeRaw);
       if (d < 0) {
@@ -93,10 +111,13 @@
       }
       s.life = Math.min(s.maxLife, Math.max(0, s.life + d));
     }
-    s.coins += num(event.coins);
+    if (setTarget(event.coins) !== null) s.coins = capTo(s.coins, event.coins);
+    else s.coins += num(event.coins);
     s.exp += Math.max(0, num(event.exp));
-    changeMaxLife(s, num(event.maxlife));
-    s.defense = Math.max(0, s.defense + num(event.defense));
+    if (setTarget(event.maxlife) !== null) changeMaxLife(s, capTo(s.maxLife, event.maxlife) - s.maxLife);
+    else changeMaxLife(s, num(event.maxlife));
+    if (setTarget(event.defense) !== null) s.defense = Math.max(0, capTo(s.defense, event.defense));
+    else s.defense = Math.max(0, s.defense + num(event.defense));
     return {
       state: s,
       delta: {
@@ -179,7 +200,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
-    parseCSV, createState, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, createState, setTarget, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
