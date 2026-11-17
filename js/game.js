@@ -79,6 +79,27 @@
     return { state: s, delta };
   }
 
+  /**
+   * 连续答错惩罚（streak 为本次答错后的连错次数）：
+   * 1 题不罚；2 题扣 10 金币；3 题扣 1 生命；4 题直接失败。
+   */
+  function applyWrongAnswer(state, streak) {
+    const s = Object.assign({}, state);
+    let penalty = "";
+    if (streak === 2) {
+      s.coins -= 10;
+      penalty = "连续答错 2 题，扣除 10 枚金币。";
+    } else if (streak === 3) {
+      s.life = Math.max(0, s.life - 1);
+      penalty = "连续答错 3 题，扣除 1 点生命。";
+    } else if (streak >= 4) {
+      s.over = true; s.won = false;
+      penalty = "连续答错 4 题，冒险到此结束。";
+    }
+    if (s.life <= 0) { s.over = true; s.won = false; }
+    return { state: s, penalty };
+  }
+
   function shuffle(arr) {
     const a = arr.slice();
     for (let i = a.length - 1; i > 0; i--) {
@@ -96,7 +117,7 @@
     return item;
   }
 
-  const Logic = { MAX_LIFE, START_COINS, MAX_DAYS, parseCSV, createState, applyEvent, advanceDay, shuffle, pickRandom };
+  const Logic = { MAX_LIFE, START_COINS, MAX_DAYS, parseCSV, createState, applyEvent, advanceDay, applyWrongAnswer, shuffle, pickRandom };
 
   if (typeof module !== "undefined" && module.exports) {
     module.exports = Logic;
@@ -114,6 +135,7 @@
   let state = createState();
   let lastQuestion = null;
   let lastEvent = null;
+  let wrongStreak = 0;
 
   function el(tag, attrs, text) {
     const e = document.createElement(tag);
@@ -170,11 +192,26 @@
     });
 
     if (chosen === q.Answer) {
+      wrongStreak = 0;
       panel.appendChild(el("p", { class: "result-good" }, "回答正确！新的一天开始了。"));
       panel.appendChild(el("button", { class: "primary", onclick: startDay }, "继续"));
     } else {
-      panel.appendChild(el("p", { class: "result-bad" }, `回答错误，正确答案是：${q.Answer}。换一道题再试试吧。`));
-      panel.appendChild(el("button", { class: "primary", onclick: askQuestion }, "换一道题"));
+      wrongStreak++;
+      const result = applyWrongAnswer(state, wrongStreak);
+      state = result.state;
+      renderStats();
+      panel.appendChild(el("p", { class: "result-bad" }, `回答错误，正确答案是：${q.Answer}。`));
+      if (result.penalty) {
+        panel.appendChild(el("p", { class: "result-bad" }, result.penalty));
+        addLog(`第 ${state.day + 1} 天前：${result.penalty}`);
+      } else {
+        panel.appendChild(el("p", { class: "changes" }, "这次不罚，但连续答错会有惩罚哦。"));
+      }
+      if (state.over) {
+        lose(state.life <= 0 ? "你的生命耗尽了……" : "你连续答错了 4 道题……");
+      } else {
+        panel.appendChild(el("button", { class: "primary", onclick: askQuestion }, "换一道题"));
+      }
     }
   }
 
@@ -196,23 +233,52 @@
       el("p", { class: "changes" }, changes),
     ];
 
-    if (state.over && !state.won) {
-      nodes.push(el("p", { class: "result-bad" }, `你的生命耗尽了……游戏结束。你坚持了 ${state.day} 天。`));
-      nodes.push(el("button", { class: "primary", onclick: restart }, "重新开始"));
-      addLog("游戏失败。");
-    } else if (state.over && state.won) {
-      nodes.push(el("p", { class: "result-good" }, `恭喜！你成功度过了 ${MAX_DAYS} 天，通关成功！最终：生命 ${state.life}，金币 ${state.coins}，经验 ${state.exp}。`));
-      nodes.push(el("button", { class: "primary", onclick: restart }, "再玩一次"));
-      addLog("成功通关！");
-    } else {
+    if (!state.over) {
       nodes.push(el("button", { class: "primary", onclick: askQuestion }, `开启第 ${state.day + 1} 天`));
     }
     panel.replaceChildren(...nodes);
+    if (state.over && state.won) win();
+    else if (state.over) lose("你的生命耗尽了……");
   }
+
+  function finalStats() {
+    return `生命 ${state.life}，金币 ${state.coins}，经验 ${state.exp}`;
+  }
+
+  function win() {
+    addLog("成功通关！");
+    endGame(true, "🎉 恭喜通关！", `你成功度过了 ${MAX_DAYS} 天！最终：${finalStats()}。`);
+  }
+
+  function lose(reason) {
+    addLog("游戏失败。");
+    endGame(false, "游戏结束", `${reason}你坚持了 ${state.day} 天。最终：${finalStats()}。`);
+  }
+
+  /** 游戏结束：面板留一个重开按钮，并弹出需手动关闭的弹窗 */
+  function endGame(won, title, text) {
+    panel.appendChild(el("button", { class: "primary", onclick: restart }, "再来一局"));
+    showModal(won, title, text);
+  }
+
+  function showModal(won, title, text) {
+    const modal = $("modal");
+    $("modal-box").className = "modal-box " + (won ? "win" : "lose");
+    $("modal-title").textContent = title;
+    $("modal-text").textContent = text;
+    modal.hidden = false;
+    $("modal-again").focus();
+  }
+
+  function hideModal() { $("modal").hidden = true; }
+
+  $("modal-close").addEventListener("click", hideModal);
+  $("modal-again").addEventListener("click", () => { hideModal(); restart(); });
 
   function restart() {
     state = createState();
     lastQuestion = lastEvent = null;
+    wrongStreak = 0;
     log.replaceChildren();
     renderStats();
     showStart();
