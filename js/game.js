@@ -324,8 +324,11 @@
       if (result.penalty) {
         panel.appendChild(el("p", { class: "result-bad" }, result.penalty));
         addLog(`第 ${state.day + 1} 天前：${result.penalty}`);
-      } else {
-        panel.appendChild(el("p", { class: "changes" }, "这次不罚，但连续答错会有惩罚哦。"));
+      }
+      // 提醒下一题答错的后果
+      const warnings = { 1: "这次不罚。⚠️ 再错一题将扣 10 金币。", 2: "⚠️ 再错一题将扣 10 生命值。", 3: "⚠️ 再错一题游戏将直接结束！" };
+      if (!state.over && warnings[wrongStreak]) {
+        panel.appendChild(el("p", { class: "warning" }, warnings[wrongStreak]));
       }
       if (state.over) {
         lose(state.life <= 0 ? "你的生命耗尽了……" : "你连续答错了 4 道题……");
