@@ -1,4 +1,4 @@
-/* 文字探险 —— 游戏逻辑 */
+/* 冒险30天 —— 游戏逻辑 */
 (function () {
   "use strict";
 
@@ -283,7 +283,7 @@
 
   function showStart() {
     panel.replaceChildren(
-      el("p", null, `欢迎来到文字探险！你有 ${START_MAX_LIFE} 点生命、${START_DEFENSE} 点防御、${START_COINS} 枚金币。防御可以抵挡受到的伤害。每开启新的一天都要先答对一道题，然后迎接当天的随机事件。下方的小商店可以随时用金币买防御和生命。坚持 ${MAX_DAYS} 天并活下来就能通关。`),
+      el("p", null, `欢迎来到冒险30天！你有 ${START_MAX_LIFE} 点生命、${START_DEFENSE} 点防御、${START_COINS} 枚金币。防御可以抵挡受到的伤害。每开启新的一天都要先答对一道题，然后迎接当天的随机事件。下方的小商店可以随时用金币买防御和生命。坚持 ${MAX_DAYS} 天并活下来就能通关。`),
       el("button", { class: "primary", onclick: askQuestion }, "开启第 1 天")
     );
   }
