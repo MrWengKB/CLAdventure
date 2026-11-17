@@ -19,3 +19,4 @@
 ## 背景音乐
 
 - 来自 https://opengameart.org/content/new-sunrise （CC0 Public Domain）
+- 打开页面时会尝试自动播放。多数浏览器会拦截有声自动播放，这时玩家第一次任意操作（点击、触摸、按键）后音乐立刻开始。右上角按钮可以开关音乐。

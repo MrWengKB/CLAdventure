@@ -2,7 +2,7 @@
  * 史诗背景音乐
  * - 如果存在 music/bgm.mp3，则循环播放该文件（可自行放入任何有授权的音乐）。
  * - 否则使用 Web Audio 实时合成的原创配乐（D 小调，弦乐铺底 + 低音 + 战鼓 + 铜管旋律），无版权问题。
- * 浏览器禁止自动播放，所以在玩家第一次点击页面时开始播放。
+ * 打开页面时尝试自动播放；如果浏览器拦截了自动播放，则在玩家第一次任意操作（点击、触摸、按键）时开始播放。
  */
 (function () {
   "use strict";
@@ -42,7 +42,6 @@
   let muted = false;
   try { muted = localStorage.getItem(STORAGE_KEY) === "1"; } catch (e) { /* 忽略 */ }
 
-  let started = false;
   let mode = null;        // "file" | "synth"
   let audioEl = null;
   let ctx = null, master = null, reverb = null, timer = null;
@@ -190,13 +189,9 @@
 
   // ---------- 播放控制 ----------
 
-  function applyMute() {
-    if (mode === "file" && audioEl) {
-      if (muted) audioEl.pause(); else audioEl.play().catch(() => {});
-    } else if (mode === "synth" && ctx) {
-      if (muted) ctx.suspend(); else ctx.resume();
-      master.gain.value = muted ? 0 : 0.6;
-    }
+  const INTERACTION_EVENTS = ["pointerdown", "touchstart", "keydown", "click"];
+
+  function updateButton() {
     const btn = document.getElementById("music-toggle");
     if (btn) {
       btn.textContent = muted ? "🔇 音乐：关" : "🔊 音乐：开";
@@ -212,41 +207,70 @@
     return "synth";
   }
 
-  const modeReady = detectMode().then(m => { mode = m; });
-
-  async function start() {
-    if (started) return;
-    started = true;
-    await modeReady;
+  const modeReady = detectMode().then(m => {
+    mode = m;
     if (mode === "file") {
       audioEl = new Audio("music/bgm.mp3");
       audioEl.loop = true;
       audioEl.volume = 0.5;
-    } else {
-      startSynth();
+      audioEl.preload = "auto";
     }
-    applyMute();
+  });
+
+  function isPlaying() {
+    if (mode === "file") return !!audioEl && !audioEl.paused;
+    return !!ctx && ctx.state === "running";
+  }
+
+  /** 尝试播放，返回 true 表示正在播放，false 表示被浏览器拦截 */
+  function play() {
+    if (muted) return Promise.resolve(false);
+    if (!mode) return modeReady.then(play);
+    if (mode === "file") {
+      return audioEl.play().then(() => true, () => false);
+    }
+    if (!ctx) startSynth();
+    if (!ctx) return Promise.resolve(false);
+    master.gain.value = 0.6;
+    const resumed = ctx.resume().catch(() => {});
+    const wait = new Promise(r => setTimeout(r, 300));
+    return Promise.race([resumed, wait]).then(() => ctx.state === "running");
+  }
+
+  function pause() {
+    if (audioEl) audioEl.pause();
+    if (ctx) ctx.suspend();
+  }
+
+  function removeInteractionListeners() {
+    INTERACTION_EVENTS.forEach(t => document.removeEventListener(t, onInteraction, true));
+  }
+
+  // 第一次任意操作（点击、触摸、按键）都会触发播放
+  function onInteraction(e) {
+    if (e.target && e.target.id === "music-toggle") return;
+    if (muted) return;
+    if (isPlaying()) { removeInteractionListeners(); return; }
+    play().then(ok => { if (ok) removeInteractionListeners(); });
   }
 
   function toggle() {
     muted = !muted;
     try { localStorage.setItem(STORAGE_KEY, muted ? "1" : "0"); } catch (e) { /* 忽略 */ }
-    if (!started) { if (!muted) start(); else applyMute(); return; }
-    applyMute();
+    updateButton();
+    if (muted) pause();
+    else play().then(ok => { if (ok) removeInteractionListeners(); });
   }
+
+  INTERACTION_EVENTS.forEach(t => document.addEventListener(t, onInteraction, true));
 
   document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById("music-toggle");
     if (btn) btn.addEventListener("click", e => { e.stopPropagation(); toggle(); });
-    applyMute();
+    updateButton();
+    // 打开页面就尝试播放；被浏览器拦截时，等玩家第一次操作再播放
+    play().then(ok => { if (ok) removeInteractionListeners(); });
   });
 
-  // 第一次点击页面时开始播放（浏览器不允许自动播放）
-  document.addEventListener("pointerdown", function first(e) {
-    if (e.target && e.target.id === "music-toggle") return;
-    document.removeEventListener("pointerdown", first, true);
-    if (!muted) start();
-  }, true);
-
-  window.CLAMusic = { start, toggle, isMuted: () => muted };
+  window.CLAMusic = { play, toggle, isPlaying, isMuted: () => muted };
 })();
