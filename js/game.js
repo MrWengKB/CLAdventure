@@ -249,6 +249,8 @@
 
   let questions = [];
   let questionSource = "questions.csv";
+  let isDefaultBank = true; // 还是自带的 questions.csv，没有导入别的
+  let homework = null;      // 通过作业链接打开时：{ title, questions }
   let events = [];
   let state = createState();
   let lastQuestion = null;
@@ -458,7 +460,9 @@
   }
 
   function renderQuestionInfo() {
-    $("qbank-info").textContent = `当前题库：${questionSource}（${questions.length} 题）`;
+    $("qbank-info").textContent = homework
+      ? `📘 作业：${homework.title}（${questions.length} 题）`
+      : `当前题库：${questionSource}（${questions.length} 题）`;
   }
 
   $("btn-import").addEventListener("click", () => $("file-input").click());
@@ -472,6 +476,7 @@
     if (!n) { toast("❌ 未识别到题目，请检查 CSV 格式（点“📋 题库格式”查看说明）"); return; }
     questions = parsed;
     questionSource = file.name;
+    isDefaultBank = false;
     lastQuestion = null;
     renderQuestionInfo();
     toast(`✅ 已导入题库「${file.name}」，共 ${n} 题`);
@@ -492,6 +497,18 @@
     toast("已下载空白模板");
   });
 
+  // ---------- 发布作业（不记成绩） ----------
+  const toRow = q => [q.Question, q.Answer, q.Distractor1, q.Distractor2, q.Distractor3];
+  const fromRow = r => ({ Question: r[0], Answer: r[1], Distractor1: r[2], Distractor2: r[3], Distractor3: r[4] });
+
+  $("btn-publish").addEventListener("click", () => {
+    $("publish-modal").hidden = false;
+    Homework.renderPublish($("publish-box"), {
+      questions: questions.map(toRow), source: questionSource, isDefault: isDefaultBank,
+      onClose: () => { $("publish-modal").hidden = true; },
+    });
+  });
+
   async function loadCSV(path) {
     const res = await fetch(path);
     if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
@@ -499,14 +516,22 @@
   }
 
   async function init() {
+    // 作业链接：用链接里的题目（或默认题库），学生不能换题库
+    homework = Homework.fromLocation();
+    if (homework && homework.error) { toast(homework.message); homework = null; }
+    if (homework) {
+      document.body.classList.add("hw-mode");
+      document.title = `${homework.title} · ${document.title}`;
+    }
+    const hwQuestions = homework && homework.questions;
     renderStats();
     panel.replaceChildren(el("p", null, "正在加载题目和事件……"));
     try {
       const [qBuf, evs] = await Promise.all([
-        fetch("questions.csv").then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`questions.csv: HTTP ${r.status}`)))),
+        hwQuestions ? null : fetch("questions.csv").then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`questions.csv: HTTP ${r.status}`)))),
         loadCSV("event.csv"),
       ]);
-      questions = parseQuestions(decodeText(qBuf));
+      questions = hwQuestions ? hwQuestions.map(fromRow) : parseQuestions(decodeText(qBuf));
       events = evs;
       renderQuestionInfo();
       if (!questions.length || !events.length) throw new Error("questions.csv 或 event.csv 为空");
