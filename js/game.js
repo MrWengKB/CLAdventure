@@ -110,6 +110,15 @@
     return t !== null && current > t ? t : current;
   }
 
+  /** 返回 "double" / "half" / "nodebt"（不分大小写），否则返回 null */
+  function special(v) {
+    const t = String(v ?? "").trim().toLowerCase();
+    return t === "double" || t === "half" || t === "nodebt" ? t : null;
+  }
+
+  /** 减半，奇数向上取整（没有 0.5） */
+  function halve(n) { return Math.ceil(n / 2); }
+
   function changeMaxLife(s, d) {
     if (!d) return;
     const wasFull = s.life >= s.maxLife;
@@ -126,6 +135,11 @@
    * 4. defense：防御增减，最低为 0
    * 以上 life、coins、maxlife、defense 都可以写 "set N"：只有当前值大于 N 时才变成 N，否则不变。
    * set 生命不受防御影响；set 生命上限按 changeMaxLife 的规则处理生命。
+   * 也可以写 double（翻倍）/ half（减半，奇数向上取整）：
+   * - life：翻倍不超过当前上限；减半不受防御影响
+   * - maxlife：按 changeMaxLife 的规则处理生命；defense：直接翻倍 / 减半
+   * - coins：负数时 double 视为 nodebt，half 不起作用
+   * coins 还可以写 nodebt：负数时归零（免除债务），否则视为 +30。
    */
   function applyEvent(state, event) {
     const s = Object.assign({}, state);
@@ -133,6 +147,10 @@
     let blocked = 0;
     if (lifeRaw === "full") {
       s.life = s.maxLife;
+    } else if (lifeRaw === "double") {
+      s.life = Math.min(s.maxLife, s.life * 2);
+    } else if (lifeRaw === "half") {
+      s.life = halve(s.life);
     } else if (setTarget(lifeRaw) !== null) {
       s.life = Math.max(0, capTo(s.life, lifeRaw));
     } else {
@@ -144,12 +162,25 @@
       }
       s.life = Math.min(s.maxLife, Math.max(0, s.life + d));
     }
-    if (setTarget(event.coins) !== null) s.coins = capTo(s.coins, event.coins);
+    const coinOp = special(event.coins);
+    if (coinOp) {
+      if (s.coins < 0) {
+        if (coinOp !== "half") s.coins = 0; // nodebt / double：免除债务
+      } else if (coinOp === "nodebt") s.coins += 30;
+      else if (coinOp === "double") s.coins *= 2;
+      else s.coins = halve(s.coins);
+    } else if (setTarget(event.coins) !== null) s.coins = capTo(s.coins, event.coins);
     else s.coins += num(event.coins);
     s.exp += Math.max(0, num(event.exp));
-    if (setTarget(event.maxlife) !== null) changeMaxLife(s, capTo(s.maxLife, event.maxlife) - s.maxLife);
+    const maxOp = special(event.maxlife);
+    if (maxOp === "double") changeMaxLife(s, s.maxLife);
+    else if (maxOp === "half") changeMaxLife(s, halve(s.maxLife) - s.maxLife);
+    else if (setTarget(event.maxlife) !== null) changeMaxLife(s, capTo(s.maxLife, event.maxlife) - s.maxLife);
     else changeMaxLife(s, num(event.maxlife));
-    if (setTarget(event.defense) !== null) s.defense = Math.max(0, capTo(s.defense, event.defense));
+    const defOp = special(event.defense);
+    if (defOp === "double") s.defense *= 2;
+    else if (defOp === "half") s.defense = halve(s.defense);
+    else if (setTarget(event.defense) !== null) s.defense = Math.max(0, capTo(s.defense, event.defense));
     else s.defense = Math.max(0, s.defense + num(event.defense));
     return {
       state: s,
@@ -233,7 +264,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
-    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -382,7 +413,8 @@
     renderStats();
 
     const d = result.delta;
-    const lifeText = String(ev.life).trim().toLowerCase() === "full" ? `生命回满(${signed(d.life)})` : `生命 ${signed(d.life)}`;
+    const lifeLabel = { full: "生命回满", double: "生命翻倍", half: "生命减半" }[String(ev.life).trim().toLowerCase()];
+    const lifeText = lifeLabel ? `${lifeLabel}(${signed(d.life)})` : `生命 ${signed(d.life)}`;
     const parts = [lifeText];
     if (d.blocked > 0) parts.push(`防御抵挡 ${d.blocked} 点伤害`);
     parts.push(`金币 ${signed(d.coins)}`, `经验 ${signed(d.exp)}`);
