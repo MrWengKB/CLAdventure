@@ -300,6 +300,12 @@
 
   function signed(n) { return (n > 0 ? "+" : "") + n; }
 
+  /** 把文字里带正负号的数字包成彩色 span：正数绿色，负数红色（0 不带符号，不变色） */
+  function colorize(text) {
+    return text.split(/([+-]\d+)/).filter(Boolean).map(part =>
+      /^[+-]\d+$/.test(part) ? el("span", { class: part[0] === "+" ? "num-pos" : "num-neg" }, part) : document.createTextNode(part));
+  }
+
   function renderStats() {
     $("stat-day").textContent = `${state.day} / ${MAX_DAYS}`;
     $("stat-life").textContent = `${state.life} / ${state.maxLife}`;
@@ -344,8 +350,10 @@
     renderStats();
   }
 
-  function addLog(text) {
-    log.insertBefore(el("li", null, text), log.firstChild);
+  function addLog(...parts) {
+    const li = el("li");
+    li.append(...parts);
+    log.insertBefore(li, log.firstChild);
   }
 
   function showStart() {
@@ -421,12 +429,12 @@
     if (d.maxLife) parts.push(`生命上限 ${signed(d.maxLife)}`);
     if (d.defense) parts.push(`防御 ${signed(d.defense)}`);
     const changes = parts.join("，");
-    addLog(`第 ${state.day} 天：${ev.event}（${changes}）`);
+    addLog(`第 ${state.day} 天：${ev.event}（`, ...colorize(changes), "）");
 
     const nodes = [
       el("p", null, `第 ${state.day} 天`),
       el("p", { class: "question" }, ev.event),
-      el("p", { class: "changes" }, changes),
+      (() => { const c = el("p", { class: "changes" }); c.append(...colorize(changes)); return c; })(),
     ];
 
     if (!state.over) {
