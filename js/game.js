@@ -9,8 +9,8 @@
 
   // ---------- 纯逻辑（可单独测试） ----------
 
-  /** 解析 CSV 文本（支持 BOM、引号、逗号转义），返回对象数组 */
-  function parseCSV(text) {
+  /** 把 CSV 文本解析成二维数组（支持 BOM、引号、逗号转义、CRLF） */
+  function parseRows(text) {
     text = text.replace(/^﻿/, "");
     const rows = [];
     let row = [];
@@ -35,6 +35,12 @@
     }
     if (field !== "" || row.length) { row.push(field); rows.push(row); }
 
+    return rows;
+  }
+
+  /** 解析带表头的 CSV，返回对象数组 */
+  function parseCSV(text) {
+    const rows = parseRows(text);
     const nonEmpty = rows.filter(r => r.some(f => f.trim() !== ""));
     if (!nonEmpty.length) return [];
     const header = nonEmpty[0].map(h => h.trim());
@@ -43,6 +49,33 @@
       header.forEach((h, idx) => { obj[h] = (r[idx] || "").trim(); });
       return obj;
     });
+  }
+
+  /**
+   * 解析题库 CSV：每行 5 列（题干、答案、干扰项1、干扰项2、干扰项3）。
+   * 按列的位置读取；表头行（第一格是“题干”或“Question”）会自动跳过；不满 5 列或有空格的行跳过；
+   * 整行没有英文逗号时，用中文逗号“，”作为后备分隔符。
+   */
+  function parseQuestions(text) {
+    const out = [];
+    for (let r of parseRows(text)) {
+      if (r.length === 1 && r[0].includes("，")) r = r[0].split("，");
+      r = r.map(x => x.trim());
+      if (r.length < 5 || r.slice(0, 5).some(x => x === "")) continue;
+      if (/^(question|题干|题目|问题)$/i.test(r[0])) continue;
+      out.push({ Question: r[0], Answer: r[1], Distractor1: r[2], Distractor2: r[3], Distractor3: r[4] });
+    }
+    return out;
+  }
+
+  /** 自动识别 UTF-8 / GBK（Excel 中文另存为 CSV 常是 GBK） */
+  function decodeText(buffer) {
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch (e) {
+      try { return new TextDecoder("gbk").decode(buffer); }
+      catch (e2) { return new TextDecoder("utf-8").decode(buffer); }
+    }
   }
 
   function createState() {
@@ -200,7 +233,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
-    parseCSV, createState, setTarget, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, applyEvent, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -215,6 +248,7 @@
   const log = $("log");
 
   let questions = [];
+  let questionSource = "questions.csv";
   let events = [];
   let state = createState();
   let lastQuestion = null;
@@ -413,6 +447,51 @@
     showStart();
   }
 
+  // ---------- 导入题库 ----------
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  function renderQuestionInfo() {
+    $("qbank-info").textContent = `当前题库：${questionSource}（${questions.length} 题）`;
+  }
+
+  $("btn-import").addEventListener("click", () => $("file-input").click());
+  $("file-input").addEventListener("change", async () => {
+    const input = $("file-input");
+    const file = input.files[0];
+    input.value = "";
+    if (!file) return;
+    const parsed = parseQuestions(decodeText(await file.arrayBuffer()));
+    const n = parsed.length;
+    if (!n) { toast("❌ 未识别到题目，请检查 CSV 格式（点“📋 题库格式”查看说明）"); return; }
+    questions = parsed;
+    questionSource = file.name;
+    lastQuestion = null;
+    renderQuestionInfo();
+    toast(`✅ 已导入题库「${file.name}」，共 ${n} 题`);
+  });
+
+  $("btn-format").addEventListener("click", () => { $("format-modal").hidden = false; });
+  $("format-close").addEventListener("click", () => { $("format-modal").hidden = true; });
+  $("format-template").addEventListener("click", () => {
+    // UTF-8 BOM lets Excel open non-ASCII text correctly
+    const blob = new Blob(["\uFEFF题干,答案,干扰项1,干扰项2,干扰项3\r\n"], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "questions-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast("已下载空白模板");
+  });
+
   async function loadCSV(path) {
     const res = await fetch(path);
     if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
@@ -423,7 +502,13 @@
     renderStats();
     panel.replaceChildren(el("p", null, "正在加载题目和事件……"));
     try {
-      [questions, events] = await Promise.all([loadCSV("questions.csv"), loadCSV("event.csv")]);
+      const [qBuf, evs] = await Promise.all([
+        fetch("questions.csv").then(r => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`questions.csv: HTTP ${r.status}`)))),
+        loadCSV("event.csv"),
+      ]);
+      questions = parseQuestions(decodeText(qBuf));
+      events = evs;
+      renderQuestionInfo();
       if (!questions.length || !events.length) throw new Error("questions.csv 或 event.csv 为空");
       showStart();
     } catch (err) {

@@ -13,6 +13,13 @@
       <button id="music-toggle" class="music-toggle" aria-pressed="true">🔊 音乐：开</button>
     </header>
 
+    <div class="toolbar">
+      <button id="btn-format">📋 题库格式</button>
+      <button id="btn-import">📂 导入题库</button>
+      <input type="file" id="file-input" accept=".csv,text/csv" hidden>
+      <span id="qbank-info" class="qbank-info"></span>
+    </div>
+
     <section class="stats" aria-label="玩家状态">
       <div class="stat"><span class="label">天数</span><span id="stat-day" class="value">0 / 30</span></div>
       <div class="stat"><span class="label">生命</span><span id="stat-life" class="value">100 / 100</span></div>
@@ -45,6 +52,38 @@
       </div>
     </div>
   </div>
+
+  <div id="format-modal" class="modal" hidden>
+    <div class="modal-box format-box" role="dialog" aria-modal="true" aria-labelledby="format-title">
+      <h2 id="format-title">📋 题库格式说明</h2>
+      <p>题库是一个 CSV 文件，<b>每行一道题</b>，共 5 列，用英文逗号 <code>,</code> 分隔：</p>
+      <table class="fmt-table">
+        <tr><th>列</th><th>内容</th></tr>
+        <tr><td><code>题干</code></td><td>题目内容</td></tr>
+        <tr><td><code>答案</code></td><td>正确答案</td></tr>
+        <tr><td><code>干扰项1</code></td><td>错误选项</td></tr>
+        <tr><td><code>干扰项2</code></td><td>错误选项</td></tr>
+        <tr><td><code>干扰项3</code></td><td>错误选项</td></tr>
+      </table>
+      <p>示例：</p>
+      <pre class="fmt-example">题干,答案,干扰项1,干扰项2,干扰项3
+白日依山尽，,黄河入海流。,春来发几枝。,清泉石上流。,风正一帆悬。
+《牡丹亭》是谁的作品？,汤显祖,王实甫,孔尚任,洪昇</pre>
+      <ul class="fmt-tips">
+        <li>第一行表头可以保留，导入时会自动跳过</li>
+        <li>游戏中四个选项会随机打乱顺序</li>
+        <li>内容里有英文逗号时，用英文双引号把整格包起来，如 <code>"1,2,3"</code>；中文逗号“，”可以直接用</li>
+        <li>可用 Excel / WPS 编辑，再“另存为 CSV”；UTF-8 和 GBK 编码都能识别</li>
+        <li>导入后从下一道题开始使用新题库，替换原来的题库；刷新页面会恢复默认题库</li>
+      </ul>
+      <div class="modal-actions">
+        <button id="format-template">⬇️ 下载空白模板</button>
+        <button id="format-close" class="primary">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="js/music.js"></script>
   <script src="js/game.js"></script>
