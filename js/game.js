@@ -434,8 +434,8 @@
   let shopMsg = "";
 
   function itemLabel(item) {
-    if (item.type === "antidote") return `解药 1 瓶（${item.price} 金币，每天限购 1 瓶）`;
-    return `${item.type === "defense" ? "防御" : "生命"} +${item.amount}（${item.price} 金币）`;
+    if (item.type === "antidote") return `💊解药 1 瓶（${item.price} 💰，每天限购 1 瓶）`;
+    return `${item.type === "defense" ? "🛡️" : "生命"} +${item.amount}（${item.price} 💰）`;
   }
 
   function renderShop() {
