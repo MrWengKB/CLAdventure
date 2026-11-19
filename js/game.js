@@ -290,22 +290,15 @@
     return events.find(e => String(e.SN).trim() === key) || null;
   }
 
-  /** 事件链长度：这个事件加上沿 next 走下去的后续事件，一共几个 */
-  function chainLength(events, ev) {
-    let n = 0;
-    const seen = new Set();
-    for (let e = ev; e && !seen.has(e); e = findEvent(events, e.next)) { seen.add(e); n++; }
-    return n;
-  }
-
   /**
    * 可随机抽取的事件：prev 为 0，且整条事件链能在剩下的天数内走完。
+   * 链的长度看链上第一个事件的 linkcount 栏（0 视为 1，即单个事件）。
    * day 是将要开始的那一天，剩余天数 = MAX_DAYS - day + 1（含当天）。例如三连事件最晚第 28 天抽到，第 29 天不会抽到。
    */
   function randomPool(events, day) {
     const hasPrev = e => { const k = String(e.prev ?? "").trim(); return k !== "" && k !== "0"; };
     const daysLeft = day ? MAX_DAYS - day + 1 : Infinity;
-    const pool = events.filter(e => !hasPrev(e) && chainLength(events, e) <= daysLeft);
+    const pool = events.filter(e => !hasPrev(e) && Math.max(1, num(e.linkcount)) <= daysLeft);
     if (pool.length) return pool;
     const fallback = events.filter(e => !hasPrev(e));
     return fallback.length ? fallback : events;
@@ -330,7 +323,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
-    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, chainLength, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
