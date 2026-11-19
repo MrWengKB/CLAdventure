@@ -82,6 +82,7 @@
     return {
       day: 0, life: START_MAX_LIFE, maxLife: START_MAX_LIFE, defense: START_DEFENSE,
       coins: START_COINS, exp: 0, level: 1, over: false, won: false,
+      poison: [], // 每次中毒剩余的回数（可叠加）
     };
   }
 
@@ -225,15 +226,35 @@
     return gained;
   }
 
-  /** 开启新的一天并结算事件 */
+  /**
+   * 中毒：事件的 poisoned 栏为 1 时中毒，从下一天开始持续 3 天，每天生命固定 -20（不受防御阻挡）。
+   * 中毒期间再次中毒会叠加（两层就是每天 -40）。中毒扣血在当天所有其它效果之前结算；
+   * 毒发让生命归零时游戏直接失败，当天的事件不再发生。
+   */
+  const POISON_DAMAGE = 20;
+  const POISON_DAYS = 3;
+
+  /** 开启新的一天：先结算中毒，再结算事件 */
   function advanceDay(state, event) {
-    const { state: s, delta } = applyEvent(Object.assign({}, state, { day: state.day + 1 }), event);
+    const start = Object.assign({}, state, { day: state.day + 1 });
+    const stacks = state.poison || [];
+    const poisonDamage = Math.min(start.life, POISON_DAMAGE * stacks.length);
+    start.life -= poisonDamage;
+    start.poison = stacks.map(n => n - 1).filter(n => n > 0);
+    if (stacks.length && start.life <= 0) {
+      start.over = true; start.won = false;
+      const zero = { life: 0, maxLife: 0, defense: 0, coins: 0, exp: 0, blocked: 0 };
+      return { state: start, delta: zero, levelUp: null, poisonDamage, poisonDeath: true, poisoned: false };
+    }
+    const { state: s, delta } = applyEvent(start, event);
+    const poisoned = num(event.poisoned) === 1;
+    if (poisoned) s.poison = s.poison.concat(POISON_DAYS);
     const lifeBefore = s.life, maxBefore = s.maxLife, defBefore = s.defense;
     const levels = s.life > 0 ? applyLevelUps(s) : 0;
     const levelUp = levels ? { levels, level: s.level, life: s.life - lifeBefore, maxLife: s.maxLife - maxBefore, defense: s.defense - defBefore } : null;
     if (s.life <= 0) { s.over = true; s.won = false; }
     else if (s.day >= MAX_DAYS) { s.over = true; s.won = true; }
-    return { state: s, delta, levelUp };
+    return { state: s, delta, levelUp, poisonDamage, poisonDeath: false, poisoned };
   }
 
   /**
@@ -325,7 +346,7 @@
   }
 
   const Logic = {
-    START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
+    START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS, POISON_DAMAGE, POISON_DAYS,
     parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
@@ -486,13 +507,24 @@
     renderStats();
 
     const d = result.delta;
+    if (result.poisonDeath) {
+      const msg = `毒发：生命 ${signed(-result.poisonDamage)}`;
+      addLog(`第 ${state.day} 天：`, ...colorize(msg));
+      const c = el("p", { class: "changes" }); c.append("☠️ ", ...colorize(msg));
+      panel.replaceChildren(el("p", null, `第 ${state.day} 天`), c);
+      lose("你毒发身亡了……");
+      return;
+    }
     const lifeLabel = { full: "生命回满", double: "生命翻倍", half: "生命减半" }[String(ev.life).trim().toLowerCase()];
     const lifeText = lifeLabel ? `${lifeLabel}(${signed(d.life)})` : `生命 ${signed(d.life)}`;
-    const parts = [lifeText];
+    const parts = [];
+    if (result.poisonDamage) parts.push(`毒发 ${signed(-result.poisonDamage)}`);
+    parts.push(lifeText);
     if (d.blocked > 0) parts.push(`防御抵挡 ${d.blocked} 点伤害`);
     parts.push(`金币 ${signed(d.coins)}`, `经验 ${signed(d.exp)}`);
     if (d.maxLife) parts.push(`生命上限 ${signed(d.maxLife)}`);
     if (d.defense) parts.push(`防御 ${signed(d.defense)}`);
+    if (result.poisoned) parts.push(`中毒！之后 ${POISON_DAYS} 天每天生命 -${POISON_DAMAGE}`);
     const changes = parts.join("，");
     addLog(`第 ${state.day} 天：${ev.event}（`, ...colorize(changes), "）");
 
