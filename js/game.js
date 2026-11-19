@@ -460,15 +460,15 @@
       state = r.state;
       if (item.type === "antidote") {
         const held = state.antidotes.length;
-        const what = r.cured ? "💊解毒，中毒结束" : `💊 +1（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`;
-        shopMsg = `购买成功：${what}，💰 -${item.price}` + (held ? `，持有💊 ${held} 颗` : "");
-        addLog(...colorize(`商店：${what}，💰 -${item.price}` + (held ? `，持有💊 ${held} 颗` : "")));
+        const what = r.cured ? "💊解药解毒，中毒结束" : `💊解药 +1（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`;
+        shopMsg = `购买成功：${what}，💰金币 -${item.price}` + (held ? `，持有💊解药 ${held} 颗` : "");
+        addLog(...colorize(`商店：${what}，💰金币 -${item.price}` + (held ? `，持有💊解药 ${held} 颗` : "")));
         renderStats();
         return;
       }
-      const what = item.type === "defense" ? "🛡️" : "♥️";
-      shopMsg = `购买成功：${what} +${r.gained}，💰 -${item.price}`;
-      addLog(...colorize(`商店：${what} +${r.gained}，💰 -${item.price}`));
+      const what = item.type === "defense" ? "🛡️防御" : "♥️生命";
+      shopMsg = `购买成功：${what} +${r.gained}，💰金币 -${item.price}`;
+      addLog(...colorize(`商店：${what} +${r.gained}，💰金币 -${item.price}`));
     }
     renderStats();
   }
@@ -546,27 +546,27 @@
 
     const d = result.delta;
     if (result.poisonDeath) {
-      const msg = `☠️ ${signed(-result.poisonDamage)}`;
+      const msg = `☠️毒发 ${signed(-result.poisonDamage)}`;
       addLog(`第 ${state.day} 天：`, ...colorize(msg));
       const c = el("p", { class: "changes" }); c.append(...colorize(msg));
       panel.replaceChildren(el("p", null, `第 ${state.day} 天`), c);
       lose("你毒发身亡了……");
       return;
     }
-    const lifeLabel = { full: "♥️回满", double: "♥️翻倍", half: "♥️减半" }[String(ev.life).trim().toLowerCase()];
-    const lifeText = lifeLabel ? `${lifeLabel}(${signed(d.life)})` : `♥️ ${signed(d.life)}`;
+    const lifeLabel = { full: "♥️生命回满", double: "♥️生命翻倍", half: "♥️生命减半" }[String(ev.life).trim().toLowerCase()];
+    const lifeText = lifeLabel ? `${lifeLabel}(${signed(d.life)})` : `♥️生命 ${signed(d.life)}`;
     const parts = [];
-    if (result.cured) parts.push("💊解毒，中毒结束");
-    if (result.poisonDamage) parts.push(`☠️ ${signed(-result.poisonDamage)}`);
+    if (result.cured) parts.push("💊解药解毒，中毒结束");
+    if (result.poisonDamage) parts.push(`☠️毒发 ${signed(-result.poisonDamage)}`);
     parts.push(lifeText);
-    if (d.blocked > 0) parts.push(`🛡️抵挡 ${d.blocked} 点伤害`);
-    parts.push(`💰 ${signed(d.coins)}`, `⭐ ${signed(d.exp)}`);
-    if (d.maxLife) parts.push(`💕上限 ${signed(d.maxLife)}`);
-    if (d.defense) parts.push(`🛡️ ${signed(d.defense)}`);
-    if (result.poisoned) parts.push(`☠️中毒！之后 ${POISON_DAYS} 天每天♥️ -${POISON_DAMAGE}`);
-    if (result.poisonBlocked) parts.push("💊抵挡了中毒（💊 -1）");
-    if (result.antidoteGain) parts.push(`💊 +${result.antidoteGain}（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`);
-    if (state.antidotes.length) parts.push(`持有💊 ${state.antidotes.length} 颗`);
+    if (d.blocked > 0) parts.push(`🛡️防御抵挡 ${d.blocked} 点伤害`);
+    parts.push(`💰金币 ${signed(d.coins)}`, `⭐经验 ${signed(d.exp)}`);
+    if (d.maxLife) parts.push(`💕生命上限 ${signed(d.maxLife)}`);
+    if (d.defense) parts.push(`🛡️防御 ${signed(d.defense)}`);
+    if (result.poisoned) parts.push(`☠️中毒！之后 ${POISON_DAYS} 天每天♥️生命 -${POISON_DAMAGE}`);
+    if (result.poisonBlocked) parts.push("💊解药抵挡了中毒（💊解药 -1）");
+    if (result.antidoteGain) parts.push(`💊解药 +${result.antidoteGain}（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`);
+    if (state.antidotes.length) parts.push(`持有💊解药 ${state.antidotes.length} 颗`);
     const changes = parts.join("，");
     addLog(`第 ${state.day} 天：${ev.event}（`, ...colorize(changes), "）");
 
@@ -577,7 +577,7 @@
     ];
     if (result.levelUp) {
       const u = result.levelUp;
-      const up = `升级！你升到了 ${u.level} 级：💕上限 ${signed(u.maxLife)}，🛡️ ${signed(u.defense)}` + (u.life ? `，♥️ ${signed(u.life)}` : "");
+      const up = `升级！你升到了 ${u.level} 级：💕生命上限 ${signed(u.maxLife)}，🛡️防御 ${signed(u.defense)}` + (u.life ? `，♥️生命 ${signed(u.life)}` : "");
       const p = el("p", { class: "level-up" }); p.append("⭐ ", ...colorize(up));
       nodes.push(p);
       addLog("⭐ ", ...colorize(up));
