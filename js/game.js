@@ -435,7 +435,7 @@
 
   function itemLabel(item) {
     if (item.type === "antidote") return `💊解药 1 颗（${item.price} 💰，每天限购 1 颗）`;
-    return `${item.type === "defense" ? "🛡️" : "生命"} +${item.amount}（${item.price} 💰）`;
+    return `${item.type === "defense" ? "🛡️" : "♥️"} +${item.amount}（${item.price} 💰）`;
   }
 
   function renderShop() {
