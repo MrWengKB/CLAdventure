@@ -248,7 +248,7 @@
   /**
    * 事件链：next 栏填下一个事件的编号（SN），抽到这个事件后，第二天必定发生 next 指向的事件；
    * 0 或空白表示没有后续，第二天照常随机。
-   * prev 栏填前一个事件的编号：不是 0 的事件只会通过事件链出现，不会被随机抽到（被 next 指向的事件同样不会被随机抽到）。
+   * prev 栏填前一个事件的编号：不是 0 的事件只会通过事件链出现，不会被随机抽到。
    */
   function findEvent(events, sn) {
     const key = String(sn ?? "").trim();
@@ -257,9 +257,8 @@
   }
 
   function randomPool(events) {
-    const targets = new Set(events.map(e => String(e.next ?? "").trim()).filter(k => k && k !== "0"));
     const hasPrev = e => { const k = String(e.prev ?? "").trim(); return k !== "" && k !== "0"; };
-    const pool = events.filter(e => !hasPrev(e) && !targets.has(String(e.SN).trim()));
+    const pool = events.filter(e => !hasPrev(e));
     return pool.length ? pool : events;
   }
 
