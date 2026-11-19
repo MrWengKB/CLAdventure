@@ -172,9 +172,9 @@
     } else if (setTarget(event.coins) !== null) s.coins = capTo(s.coins, event.coins);
     else s.coins += num(event.coins);
     const expRaw = String(event.exp ?? "").trim().toLowerCase();
-    // full：经验补到下一级所需，即升一级；double：经验翻倍
+    // full：经验补到下一级所需，即升一级；double：经验翻倍（0 时 +5），但最多补到下一级所需（触及升级门槛就视为 full）
     if (expRaw === "full") s.exp = Math.max(s.exp, expForLevel((s.level || 1) + 1));
-    else if (expRaw === "double") s.exp = s.exp === 0 ? 5 : s.exp * 2;
+    else if (expRaw === "double") s.exp = Math.min(s.exp === 0 ? 5 : s.exp * 2, Math.max(s.exp, expForLevel((s.level || 1) + 1)));
     else s.exp += Math.max(0, num(event.exp));
     const maxOp = special(event.maxlife);
     if (maxOp === "double") changeMaxLife(s, s.maxLife);
