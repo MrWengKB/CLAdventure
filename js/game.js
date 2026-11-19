@@ -193,7 +193,8 @@
 
   /**
    * 等级：升到 L 级所需的累计经验 = 30 + 15 × (L-1) × (L-2)，即 2 级 30、3 级 60、4 级 120、5 级 210、6 级 330……
-   * （从 2 级起，每级所需经验比上一级多 30。）升到 N 级时：生命上限 +N×10（按上限规则处理生命），防御 +N×5。
+   * （从 2 级起，每级所需经验比上一级多 30。）升到 N 级时：生命上限 +N×10，防御 +N×5，生命回满。
+   * 当天事件让生命归零时不升级（游戏已经结束）。
    */
   const LEVEL_MAX_LIFE = 10; // × 新等级
   const LEVEL_DEFENSE = 5;   // × 新等级
@@ -216,6 +217,7 @@
       changeMaxLife(s, LEVEL_MAX_LIFE * lv);
       s.defense += LEVEL_DEFENSE * lv;
     }
+    if (gained) s.life = s.maxLife;
     s.level = Math.max(s.level, target);
     return gained;
   }
@@ -224,7 +226,7 @@
   function advanceDay(state, event) {
     const { state: s, delta } = applyEvent(Object.assign({}, state, { day: state.day + 1 }), event);
     const lifeBefore = s.life, maxBefore = s.maxLife, defBefore = s.defense;
-    const levels = applyLevelUps(s);
+    const levels = s.life > 0 ? applyLevelUps(s) : 0;
     const levelUp = levels ? { levels, level: s.level, life: s.life - lifeBefore, maxLife: s.maxLife - maxBefore, defense: s.defense - defBefore } : null;
     if (s.life <= 0) { s.over = true; s.won = false; }
     else if (s.day >= MAX_DAYS) { s.over = true; s.won = true; }
