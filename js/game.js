@@ -81,7 +81,7 @@
   function createState() {
     return {
       day: 0, life: START_MAX_LIFE, maxLife: START_MAX_LIFE, defense: START_DEFENSE,
-      coins: START_COINS, exp: 0, over: false, won: false,
+      coins: START_COINS, exp: 0, level: 1, over: false, won: false,
     };
   }
 
@@ -191,12 +191,44 @@
     };
   }
 
+  /**
+   * 等级：升到 L 级所需的累计经验 = 30 + 15 × (L-1) × (L-2)，即 2 级 30、3 级 60、4 级 120、5 级 210、6 级 330……
+   * （从 2 级起，每级所需经验比上一级多 30。）升到 N 级时：生命上限 +N×10（按上限规则处理生命），防御 +N×5。
+   */
+  const LEVEL_MAX_LIFE = 10; // × 新等级
+  const LEVEL_DEFENSE = 5;   // × 新等级
+
+  function expForLevel(level) {
+    return level <= 1 ? 0 : 30 + 15 * (level - 1) * (level - 2);
+  }
+
+  function levelForExp(exp) {
+    let level = 1;
+    while (exp >= expForLevel(level + 1)) level++;
+    return level;
+  }
+
+  /** 按经验升级（直接修改 s），返回升了几级 */
+  function applyLevelUps(s) {
+    const target = levelForExp(s.exp);
+    const gained = Math.max(0, target - s.level);
+    for (let lv = s.level + 1; lv <= target; lv++) {
+      changeMaxLife(s, LEVEL_MAX_LIFE * lv);
+      s.defense += LEVEL_DEFENSE * lv;
+    }
+    s.level = Math.max(s.level, target);
+    return gained;
+  }
+
   /** 开启新的一天并结算事件 */
   function advanceDay(state, event) {
     const { state: s, delta } = applyEvent(Object.assign({}, state, { day: state.day + 1 }), event);
+    const lifeBefore = s.life, maxBefore = s.maxLife, defBefore = s.defense;
+    const levels = applyLevelUps(s);
+    const levelUp = levels ? { levels, level: s.level, life: s.life - lifeBefore, maxLife: s.maxLife - maxBefore, defense: s.defense - defBefore } : null;
     if (s.life <= 0) { s.over = true; s.won = false; }
     else if (s.day >= MAX_DAYS) { s.over = true; s.won = true; }
-    return { state: s, delta };
+    return { state: s, delta, levelUp };
   }
 
   /**
@@ -281,7 +313,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS,
-    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -330,7 +362,8 @@
     $("stat-defense").textContent = state.defense;
     $("stat-coins").textContent = state.coins;
     $("stat-coins").classList.toggle("negative", state.coins < 0);
-    $("stat-exp").textContent = state.exp;
+    $("stat-level").textContent = `Lv ${state.level}`;
+    $("stat-exp").textContent = `${state.exp} / ${expForLevel(state.level + 1)}`;
     renderShop();
   }
 
@@ -455,6 +488,13 @@
       el("p", { class: "question" }, ev.event),
       (() => { const c = el("p", { class: "changes" }); c.append(...colorize(changes)); return c; })(),
     ];
+    if (result.levelUp) {
+      const u = result.levelUp;
+      const up = `升级！你升到了 ${u.level} 级：生命上限 ${signed(u.maxLife)}，防御 ${signed(u.defense)}` + (u.life ? `，生命 ${signed(u.life)}` : "");
+      const p = el("p", { class: "level-up" }); p.append("⭐ ", ...colorize(up));
+      nodes.push(p);
+      addLog("⭐ ", ...colorize(up));
+    }
 
     if (!state.over) {
       nodes.push(el("button", { class: "primary", onclick: askQuestion }, `开启第 ${state.day + 1} 天`));
@@ -465,7 +505,7 @@
   }
 
   function finalStats() {
-    return `生命 ${state.life}/${state.maxLife}，防御 ${state.defense}，金币 ${state.coins}，经验 ${state.exp}`;
+    return `等级 ${state.level}，生命 ${state.life}/${state.maxLife}，防御 ${state.defense}，金币 ${state.coins}，经验 ${state.exp}`;
   }
 
   function win() {
