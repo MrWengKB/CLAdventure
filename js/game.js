@@ -279,6 +279,22 @@
    * 连续答错惩罚（streak 为本次答错后的连错次数）：
    * 1 题不罚；2 题扣 10 金币；3 题扣 10 生命（不受防御影响）；4 题直接失败。
    */
+  /**
+   * 一次答对奖励：当天的题第一次就答对（之前没有答错）时，随机奖励生命 / 防御 / 金币 / 经验之一，
+   * 数值 1 到 5 随机。生命不超过上限；经验照常算升级（在当天事件之后一起结算）。
+   */
+  const BONUS_TYPES = ["life", "defense", "coins", "exp"];
+  const BONUS_MIN = 1, BONUS_MAX = 5;
+
+  function firstTryBonus(state, rand = Math.random) {
+    const s = Object.assign({}, state);
+    const type = BONUS_TYPES[Math.floor(rand() * BONUS_TYPES.length)];
+    const amount = BONUS_MIN + Math.floor(rand() * (BONUS_MAX - BONUS_MIN + 1));
+    if (type === "life") s.life = Math.min(s.maxLife, s.life + amount);
+    else s[type] += amount;
+    return { state: s, type, amount, gained: s[type] - state[type] };
+  }
+
   function applyWrongAnswer(state, streak) {
     const s = Object.assign({}, state);
     let penalty = "";
@@ -375,7 +391,7 @@
 
   const Logic = {
     START_MAX_LIFE, START_DEFENSE, START_COINS, MAX_DAYS, SHOP_ITEMS, POISON_DAMAGE, POISON_DAYS, ANTIDOTE_DAYS,
-    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, buyItem, shuffle, pickRandom,
+    parseCSV, parseRows, parseQuestions, decodeText, createState, setTarget, special, applyEvent, findEvent, randomPool, changeMaxLife, expForLevel, levelForExp, applyLevelUps, advanceDay, applyWrongAnswer, firstTryBonus, buyItem, shuffle, pickRandom,
   };
 
   if (typeof module !== "undefined" && module.exports) {
@@ -510,8 +526,19 @@
     });
 
     if (chosen === q.Answer) {
+      const firstTry = wrongStreak === 0;
       wrongStreak = 0;
       panel.appendChild(el("p", { class: "result-good" }, "回答正确！新的一天开始了。"));
+      if (firstTry) {
+        const b = firstTryBonus(state);
+        state = b.state;
+        renderStats();
+        const name = { life: "♥️生命", defense: "🛡️防御", coins: "💰金币", exp: "⭐经验" }[b.type];
+        const msg = `🎁 一次答对奖励：${name} +${b.gained}` + (b.gained < b.amount ? "（生命已满）" : "");
+        const bp = el("p", { class: "bonus" }); bp.append(...colorize(msg));
+        panel.appendChild(bp);
+        addLog(`第 ${state.day + 1} 天前：`, ...colorize(msg));
+      }
       panel.appendChild(el("button", { class: "primary", onclick: startDay }, "继续"));
     } else {
       wrongStreak++;
