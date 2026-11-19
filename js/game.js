@@ -83,6 +83,7 @@
       day: 0, life: START_MAX_LIFE, maxLife: START_MAX_LIFE, defense: START_DEFENSE,
       coins: START_COINS, exp: 0, level: 1, over: false, won: false,
       antidotes: [], // 每瓶解药最后有效的那一天
+      antidoteBoughtDay: -1,
       poison: [], // 每次中毒剩余的回数（可叠加）
     };
   }
@@ -303,6 +304,7 @@
     { id: "life10", type: "life", amount: 10, price: 100 },
     { id: "life20", type: "life", amount: 20, price: 180 },
     { id: "life30", type: "life", amount: 30, price: 270 },
+    { id: "antidote", type: "antidote", amount: 1, price: 200 },
   ];
 
   /**
@@ -313,8 +315,17 @@
     if (state.over || state.life <= 0) return { ok: false, state, reason: "生命为 0 时不能购买。" };
     if (state.coins < item.price) return { ok: false, state, reason: "金币不足。" };
     if (item.type === "life" && state.life >= state.maxLife) return { ok: false, state, reason: "生命已满，不需要购买。" };
+    if (item.type === "antidote" && state.antidoteBoughtDay === state.day) return { ok: false, state, reason: "每天限购 1 瓶解药。" };
     const s = Object.assign({}, state);
     s.coins -= item.price;
+    if (item.type === "antidote") {
+      // 正在中毒：立刻解毒；否则之后 ANTIDOTE_DAYS 天内有效
+      s.antidoteBoughtDay = s.day;
+      const cured = (s.poison || []).length > 0;
+      if (cured) s.poison = [];
+      else s.antidotes = (s.antidotes || []).filter(last => last > s.day).concat(s.day + ANTIDOTE_DAYS);
+      return { ok: true, state: s, gained: 1, cured };
+    }
     if (item.type === "defense") s.defense += item.amount;
     else s.life = Math.min(s.maxLife, s.life + item.amount);
     return { ok: true, state: s, gained: item.type === "defense" ? s.defense - state.defense : s.life - state.life };
@@ -423,6 +434,7 @@
   let shopMsg = "";
 
   function itemLabel(item) {
+    if (item.type === "antidote") return `解药 1 瓶（${item.price} 金币，每天限购 1 瓶）`;
     return `${item.type === "defense" ? "防御" : "生命"} +${item.amount}（${item.price} 金币）`;
   }
 
@@ -431,7 +443,8 @@
     if (!box) return;
     box.replaceChildren(...SHOP_ITEMS.map(item => {
       const disabled = state.over || state.life <= 0 || state.coins < item.price ||
-        (item.type === "life" && state.life >= state.maxLife);
+        (item.type === "life" && state.life >= state.maxLife) ||
+        (item.type === "antidote" && state.antidoteBoughtDay === state.day);
       const b = el("button", { class: "shop-item " + item.type, onclick: () => buy(item) }, itemLabel(item));
       b.disabled = disabled;
       return b;
@@ -445,6 +458,14 @@
       shopMsg = r.reason;
     } else {
       state = r.state;
+      if (item.type === "antidote") {
+        const held = state.antidotes.length;
+        const what = r.cured ? "解药解毒，中毒结束" : `解药 +1（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`;
+        shopMsg = `购买成功：${what}，花费 ${item.price} 金币。` + (held ? `持有解药 ${held} 瓶。` : "");
+        addLog(`商店：${what}（-${item.price} 金币）` + (held ? `，持有解药 ${held} 瓶` : ""));
+        renderStats();
+        return;
+      }
       const what = item.type === "defense" ? "防御" : "生命";
       shopMsg = `购买成功：${what} +${r.gained}，花费 ${item.price} 金币。`;
       addLog(`商店：${what} +${r.gained}（-${item.price} 金币）`);
