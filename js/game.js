@@ -137,8 +137,8 @@
    * set 生命不受防御影响；set 生命上限按 changeMaxLife 的规则处理生命。
    * 也可以写 double（翻倍）/ half（减半，奇数向上取整）：
    * - life：翻倍不超过当前上限；减半不受防御影响
-   * - maxlife：按 changeMaxLife 的规则处理生命；defense：直接翻倍 / 减半
-   * - coins：负数时 double 视为 nodebt，half 不起作用
+   * - maxlife：按 changeMaxLife 的规则处理生命；defense：直接翻倍 / 减半，为 0 时 double 视为 +30
+   * - coins：负数时 double 视为 nodebt，half 不起作用；为 0 时 double 视为 +100
    * coins 还可以写 nodebt：负数时归零（免除债务），否则视为 +30。
    */
   function applyEvent(state, event) {
@@ -167,7 +167,7 @@
       if (s.coins < 0) {
         if (coinOp !== "half") s.coins = 0; // nodebt / double：免除债务
       } else if (coinOp === "nodebt") s.coins += 30;
-      else if (coinOp === "double") s.coins *= 2;
+      else if (coinOp === "double") s.coins = s.coins === 0 ? 100 : s.coins * 2;
       else s.coins = halve(s.coins);
     } else if (setTarget(event.coins) !== null) s.coins = capTo(s.coins, event.coins);
     else s.coins += num(event.coins);
@@ -178,7 +178,7 @@
     else if (setTarget(event.maxlife) !== null) changeMaxLife(s, capTo(s.maxLife, event.maxlife) - s.maxLife);
     else changeMaxLife(s, num(event.maxlife));
     const defOp = special(event.defense);
-    if (defOp === "double") s.defense *= 2;
+    if (defOp === "double") s.defense = s.defense === 0 ? 30 : s.defense * 2;
     else if (defOp === "half") s.defense = halve(s.defense);
     else if (setTarget(event.defense) !== null) s.defense = Math.max(0, capTo(s.defense, event.defense));
     else s.defense = Math.max(0, s.defense + num(event.defense));
