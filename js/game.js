@@ -197,11 +197,11 @@
 
   /**
    * 等级：升到 L 级所需的累计经验 = 30 + 15 × (L-1) × (L-2)，即 2 级 30、3 级 60、4 级 120、5 级 210、6 级 330……
-   * （从 2 级起，每级所需经验比上一级多 30。）升到 N 级时：生命上限 +N×10，防御 +N×5，生命回满。
+   * （从 2 级起，每级所需经验比上一级多 30。）升到 N 级时：生命上限 +N×5（按上限规则处理生命，不回血），防御 +N×2。
    * 当天事件让生命归零时不升级（游戏已经结束）。
    */
-  const LEVEL_MAX_LIFE = 10; // × 新等级
-  const LEVEL_DEFENSE = 5;   // × 新等级
+  const LEVEL_MAX_LIFE = 5;  // × 新等级
+  const LEVEL_DEFENSE = 2;   // × 新等级
 
   function expForLevel(level) {
     return level <= 1 ? 0 : 30 + 15 * (level - 1) * (level - 2);
@@ -221,7 +221,6 @@
       changeMaxLife(s, LEVEL_MAX_LIFE * lv);
       s.defense += LEVEL_DEFENSE * lv;
     }
-    if (gained) s.life = s.maxLife;
     s.level = Math.max(s.level, target);
     return gained;
   }
