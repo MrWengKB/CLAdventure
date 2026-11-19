@@ -556,7 +556,7 @@
     const lifeLabel = { full: "♥️回满", double: "♥️翻倍", half: "♥️减半" }[String(ev.life).trim().toLowerCase()];
     const lifeText = lifeLabel ? `${lifeLabel}(${signed(d.life)})` : `♥️ ${signed(d.life)}`;
     const parts = [];
-    if (result.cured) parts.push("💊解药解毒，中毒结束");
+    if (result.cured) parts.push("💊解毒，中毒结束");
     if (result.poisonDamage) parts.push(`☠️ ${signed(-result.poisonDamage)}`);
     parts.push(lifeText);
     if (d.blocked > 0) parts.push(`🛡️抵挡 ${d.blocked} 点伤害`);
@@ -564,9 +564,9 @@
     if (d.maxLife) parts.push(`💕上限 ${signed(d.maxLife)}`);
     if (d.defense) parts.push(`🛡️ ${signed(d.defense)}`);
     if (result.poisoned) parts.push(`☠️中毒！之后 ${POISON_DAYS} 天每天♥️ -${POISON_DAMAGE}`);
-    if (result.poisonBlocked) parts.push("💊解药抵挡了中毒（💊解药 -1）");
-    if (result.antidoteGain) parts.push(`获得💊解药 +${result.antidoteGain}（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`);
-    if (state.antidotes.length) parts.push(`持有💊解药 ${state.antidotes.length} 颗`);
+    if (result.poisonBlocked) parts.push("💊抵挡了中毒（💊 -1）");
+    if (result.antidoteGain) parts.push(`💊 +${result.antidoteGain}（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`);
+    if (state.antidotes.length) parts.push(`持有💊 ${state.antidotes.length} 颗`);
     const changes = parts.join("，");
     addLog(`第 ${state.day} 天：${ev.event}（`, ...colorize(changes), "）");
 
