@@ -460,15 +460,15 @@
       state = r.state;
       if (item.type === "antidote") {
         const held = state.antidotes.length;
-        const what = r.cured ? "解药解毒，中毒结束" : `解药 +1（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`;
-        shopMsg = `购买成功：${what}，花费 ${item.price} 金币。` + (held ? `持有解药 ${held} 颗。` : "");
-        addLog(`商店：${what}（-${item.price} 金币）` + (held ? `，持有解药 ${held} 颗` : ""));
+        const what = r.cured ? "💊解毒，中毒结束" : `💊 +1（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`;
+        shopMsg = `购买成功：${what}，💰 -${item.price}` + (held ? `，持有💊 ${held} 颗` : "");
+        addLog(...colorize(`商店：${what}，💰 -${item.price}` + (held ? `，持有💊 ${held} 颗` : "")));
         renderStats();
         return;
       }
-      const what = item.type === "defense" ? "防御" : "生命";
-      shopMsg = `购买成功：${what} +${r.gained}，花费 ${item.price} 金币。`;
-      addLog(`商店：${what} +${r.gained}（-${item.price} 金币）`);
+      const what = item.type === "defense" ? "🛡️" : "♥️";
+      shopMsg = `购买成功：${what} +${r.gained}，💰 -${item.price}`;
+      addLog(...colorize(`商店：${what} +${r.gained}，💰 -${item.price}`));
     }
     renderStats();
   }
