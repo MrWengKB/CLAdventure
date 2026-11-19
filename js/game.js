@@ -545,7 +545,7 @@
     if (result.poisoned) parts.push(`中毒！之后 ${POISON_DAYS} 天每天生命 -${POISON_DAMAGE}`);
     if (result.poisonBlocked) parts.push("解药抵挡了中毒（解药 -1）");
     if (result.antidoteGain) parts.push(`获得解药 +${result.antidoteGain}（之后 ${ANTIDOTE_DAYS} 天内可抵挡中毒）`);
-    if (state.antidotes.length) parts.push(`持有解药 ${state.antidotes.length}`);
+    if (state.antidotes.length) parts.push(`持有解药 ${state.antidotes.length} 瓶`);
     const changes = parts.join("，");
     addLog(`第 ${state.day} 天：${ev.event}（`, ...colorize(changes), "）");
 
