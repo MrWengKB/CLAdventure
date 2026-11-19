@@ -17,6 +17,7 @@
   - `coins` 还可以写 `nodebt`：金币为负数时归零（免除债务），否则视为 +30。
 - 小商店：随时可用金币购买。防御 +5 / +10 / +15 分别 100 / 180 / 270 金币；生命 +10 / +20 / +30 分别 100 / 180 / 270 金币。只有生命大于 0 时能买；金币必须足够（不能借钱买）；生命不会超过上限，满血时不能买生命。
 - 生命为 0 则游戏失败；坚持满 30 天且生命大于 0 则通关。通关或失败都会弹窗提示，需手动关闭或点“再来一局”。
+- 事件链：`event.csv` 的 `next` 栏填下一个事件的编号（SN）。抽到这个事件后，第二天必定发生 `next` 指向的事件；填 0 表示没有后续，第二天照常随机。被其他事件的 `next` 指向的事件只会通过事件链出现，不会被随机抽到。例如 32 的 next 是 33、33 的 next 是 34，就会依次发生 32 → 33 → 34。
 
 ## 导入题库
 
@@ -36,7 +37,7 @@
 ## 数据文件
 
 - `questions.csv`：`Question,Answer,Distractor1,Distractor2,Distractor3`
-- `event.csv`：`SN,event,life,coins,exp,defense,maxlife`
+- `event.csv`：`SN,event,life,coins,exp,defense,maxlife,next`
 
 ## 背景音乐
 
